@@ -126,9 +126,10 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_CONTENT')]) {
                         sh '''
-                            export KUBECONFIG="$KUBECONFIG"
+                            echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig
+                            export KUBECONFIG=/tmp/kubeconfig
 
                             # Create namespace if it doesn't exist
                             kubectl create namespace ''' + NAMESPACE + ''' --dry-run=client -o yaml | kubectl apply -f -
@@ -155,9 +156,10 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG')]) {
+                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_CONTENT')]) {
                         sh '''
-                            export KUBECONFIG="$KUBECONFIG"
+                            echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig
+                            export KUBECONFIG=/tmp/kubeconfig
 
                             echo "Checking pod status..."
                             kubectl get pods -n ''' + NAMESPACE + '''
