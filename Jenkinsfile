@@ -57,38 +57,42 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                script {
-                    sh """
-                    export KUBECONFIG=${KUBECONFIG_PATH}
+                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
+                    script {
+                        sh """
+                        export KUBECONFIG=\${KUBECONFIG_FILE}
 
-                    # Create namespace if it doesn't exist
-                    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - --validate=false
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - --validate=false
 
-                    # Apply manifests (Service should expose ports 80/443)
-                    kubectl apply -f k8s/ --validate=false
+                        # Apply manifests (Service should expose ports 80/443)
+                        kubectl apply -f k8s/ --validate=false
 
-                    # Update deployment with new image
-                    kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
+                        # Update deployment with new image
+                        kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
-                    # Wait for rollout
-                    kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=10m
+                        # Wait for rollout
+                        kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=10m
 
-                    # Wait for pods to be ready (retry to avoid SG or network issues)
-                    kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=600s
-                    """
+                        # Wait for pods to be ready (retry to avoid SG or network issues)
+                        kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=600s
+                        """
+                    }
                 }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                sh """
-                export KUBECONFIG=${KUBECONFIG_PATH}
-                echo "Pods in namespace ${NAMESPACE}:"
-                kubectl get pods -n ${NAMESPACE}
-                echo "Services in namespace ${NAMESPACE}:"
-                kubectl get svc -n ${NAMESPACE}
-                """
+                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
+                    sh """
+                    export KUBECONFIG=\${KUBECONFIG_FILE}
+                    echo "Pods in namespace ${NAMESPACE}:"
+                    kubectl get pods -n ${NAMESPACE}
+                    echo "Services in namespace ${NAMESPACE}:"
+                    kubectl get svc -n ${NAMESPACE}
+                    """
+                }
             }
         }
     }
