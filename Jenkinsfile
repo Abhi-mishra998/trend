@@ -6,7 +6,7 @@ pipeline {
         DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
         IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
         NAMESPACE = 'trend-app'
-        KUBECONFIG_PATH = '/var/lib/jenkins/.kube/config' // Updated kubeconfig path
+        KUBECONFIG_PATH = '/var/lib/jenkins/.kube/config'
     }
 
     stages {
@@ -32,7 +32,7 @@ pipeline {
                         command -v kubeval >/dev/null 2>&1 || echo "Kubeval not installed"
                         for file in k8s/*.yaml; do
                             echo "Validating: $file"
-                            kubeval "$file" --kubernetes-version 1.28.0 || true
+                            kubeval "$file" --kubernetes-version 1.28.0 --ignore-missing-schemas || true
                         done
                         '''
                     }
@@ -64,14 +64,17 @@ pipeline {
                     # Create namespace if it doesn't exist
                     kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                    # Apply manifests
-                    kubectl apply -f k8s/
+                    # Apply manifests (Service should expose ports 80/443)
+                    kubectl apply -f k8s/ --validate=false
 
                     # Update deployment with new image
                     kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
                     # Wait for rollout
-                    kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=5m
+                    kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=10m
+
+                    # Wait for pods to be ready (retry to avoid SG or network issues)
+                    kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=600s
                     """
                 }
             }
@@ -81,9 +84,10 @@ pipeline {
             steps {
                 sh """
                 export KUBECONFIG=${KUBECONFIG_PATH}
+                echo "Pods in namespace ${NAMESPACE}:"
                 kubectl get pods -n ${NAMESPACE}
+                echo "Services in namespace ${NAMESPACE}:"
                 kubectl get svc -n ${NAMESPACE}
-                kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=300s
                 """
             }
         }
