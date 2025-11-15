@@ -62,8 +62,8 @@ pipeline {
                         sh """
                         export KUBECONFIG=\${KUBECONFIG_FILE}
 
-                        # Create namespace if it doesn't exist
-                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f - --validate=false
+                    # Create namespace if it doesn't exist
+                    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml --validate=false | kubectl apply -f - --validate=false
 
                         # Apply manifests (Service should expose ports 80/443)
                         kubectl apply -f k8s/ --validate=false
