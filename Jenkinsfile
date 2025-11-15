@@ -62,11 +62,14 @@ pipeline {
                         sh """
                         export KUBECONFIG=\${KUBECONFIG_FILE}
 
-                    # Create namespace if it doesn't exist
-                    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml --validate=false | kubectl apply -f - --validate=false
+                        # Test kubectl connection first
+                        kubectl cluster-info
+
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
                         # Apply manifests (Service should expose ports 80/443)
-                        kubectl apply -f k8s/ --validate=false
+                        kubectl apply -f k8s/
 
                         # Update deployment with new image
                         kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
