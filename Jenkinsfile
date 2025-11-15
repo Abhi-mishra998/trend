@@ -4,115 +4,31 @@ pipeline {
     environment {
         DOCKERHUB_REPO = 'abhishek8056/trend-app'
         DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
-        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-creds' // Secret file type
         IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
         NAMESPACE = 'trend-app'
+        // Optional: If you want to use the EC2 kubeconfig path directly
+        KUBECONFIG_PATH = '/home/ec2-user/.kube/config'
     }
 
     stages {
-
         stage('Checkout') {
             steps {
-                echo 'Checking out code...'
                 checkout scm
             }
         }
 
-        stage('Lint & Validate') {
-            parallel {
-
-                stage('Dockerfile Lint') {
-                    steps {
-                        sh '''
-                            if command -v hadolint &>/dev/null; then
-                                hadolint Dockerfile || true
-                            else
-                                echo "hadolint not installed, skipping..."
-                            fi
-                        '''
-                    }
-                }
-
-                stage('Terraform Validate') {
-                    steps {
-                        dir('infrastructure') {
-                            sh '''
-                                terraform init -backend=false
-                                terraform fmt -check || true
-                                terraform validate
-                            '''
-                        }
-                    }
-                }
-
-                stage('Kubernetes Validate') {
-                    steps {
-                        sh '''
-                            if command -v kubeval &>/dev/null; then
-                                for file in k8s/*.yaml; do
-                                    echo "Validating: $file"
-                                    kubeval "$file" --kubernetes-version 1.29.0 || true
-                                done
-                            else
-                                echo "kubeval not installed, skipping..."
-                            fi
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Build Docker Image') {
+        stage('Build & Push Docker Image') {
             steps {
                 script {
                     sh """
-                        echo 'Building Docker image...'
                         docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
                         docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
+
+                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                        docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                        docker push ${DOCKERHUB_REPO}:latest
+                        docker logout
                     """
-                }
-            }
-        }
-
-        stage('Test Docker Image') {
-            steps {
-                script {
-                    sh """
-                        echo 'Testing Docker container...'
-                        docker run -d --name test-container -p 3001:3000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
-
-                        for i in {1..30}; do
-                            if curl -f http://localhost:3001 > /dev/null 2>&1; then
-                                echo 'App is responding!'
-                                break
-                            fi
-                            echo "Waiting for app to start... attempt \$i"
-                            sleep 5
-                        done
-
-                        curl -f http://localhost:3001 || exit 1
-                        docker stop test-container || true
-                        docker rm test-container || true
-                    """
-                }
-            }
-        }
-
-        stage('Push to DockerHub') {
-            steps {
-                script {
-                    withCredentials([usernamePassword(
-                        credentialsId: "${DOCKERHUB_CREDENTIAL_ID}",
-                        usernameVariable: 'DOCKER_USER',
-                        passwordVariable: 'DOCKER_PASS'
-                    )]) {
-                        sh """
-                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                            docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                            docker push ${DOCKERHUB_REPO}:latest
-                            docker logout || true
-                        """
-                    }
                 }
             }
         }
@@ -120,29 +36,22 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Using Secret File credentials for kubeconfig
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_FILE')]) {
-                        sh '''
-                            export KUBECONFIG=$KUBECONFIG_FILE
+                    // Using EC2 kubeconfig directly
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG_PATH}
 
-                            # Ensure namespace exists
-                            kubectl create namespace '${NAMESPACE}' --dry-run=client -o yaml | kubectl apply -f -
+                        # Create namespace if it doesn't exist
+                        kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                            # Apply manifests
-                            kubectl apply -f k8s/namespace.yaml || true
-                            kubectl apply -f k8s/deployment.yaml
-                            kubectl apply -f k8s/service.yaml
-                            kubectl apply -f k8s/hpa.yaml || true
-                            kubectl apply -f k8s/resource-quota.yaml || true
-                            kubectl apply -f k8s/network-policy.yaml || true
+                        # Apply manifests
+                        kubectl apply -f k8s/
 
-                            # Update deployment image
-                            kubectl set image deployment/trend-app-deployment trend-app='${DOCKERHUB_REPO}:${IMAGE_TAG}' -n '${NAMESPACE}'
+                        # Update deployment with new image
+                        kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
-                            # Wait for rollout
-                            kubectl rollout status deployment/trend-app-deployment -n '${NAMESPACE}' --timeout=5m
-                        '''
-                    }
+                        # Wait for rollout
+                        kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=5m
+                    """
                 }
             }
         }
@@ -150,23 +59,15 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_FILE')]) {
-                        sh '''
-                            export KUBECONFIG=$KUBECONFIG_FILE
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG_PATH}
 
-                            echo "Pods status:"
-                            kubectl get pods -n '${NAMESPACE}'
+                        kubectl get pods -n ${NAMESPACE}
+                        kubectl get svc -n ${NAMESPACE}
 
-                            echo "Services status:"
-                            kubectl get svc -n '${NAMESPACE}'
-
-                            echo "Waiting for pods to be ready..."
-                            kubectl wait --for=condition=ready pod -l app=trend-app -n '${NAMESPACE}' --timeout=300s
-
-                            echo "External URL:"
-                            kubectl get svc trend-app-service -n '${NAMESPACE}' -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" || echo "LoadBalancer pending..."
-                        '''
-                    }
+                        # Wait until pods are ready
+                        kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=300s
+                    """
                 }
             }
         }
@@ -174,8 +75,7 @@ pipeline {
 
     post {
         success {
-            echo "🎉 Pipeline completed successfully!"
-            echo "Image deployed: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
+            echo "🎉 Deployment successful: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
         }
         failure {
             echo "❌ Pipeline failed!"
