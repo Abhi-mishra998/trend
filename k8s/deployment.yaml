@@ -45,4 +45,8 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
+          env:
+            - name: NODE_ENV
+              value: "production"
+      serviceAccountName: trend-app-sa
       restartPolicy: Always

@@ -1,7 +1,7 @@
 variable "aws_region" {
   description = "AWS region to deploy resources"
   type        = string
-  default     = "us-east-1"
+  default     = "ap-south-1"
 }
 
 variable "aws_profile" {
@@ -38,7 +38,7 @@ variable "vpc_cidr" {
 variable "availability_zones" {
   description = "Availability zones"
   type        = list(string)
-  default     = ["us-east-1a", "us-east-1b"]
+  default     = ["ap-south-1a", "ap-south-1b"]
 }
 
 variable "public_subnet_cidrs" {
@@ -56,7 +56,7 @@ variable "private_subnet_cidrs" {
 variable "jenkins_instance_type" {
   description = "EC2 instance type for Jenkins"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.large"
 }
 
 variable "jenkins_ami" {
@@ -74,31 +74,31 @@ variable "eks_cluster_name" {
 variable "eks_cluster_version" {
   description = "Kubernetes version for EKS cluster"
   type        = string
-  default     = "1.29"
+  default     = "1.31"
 }
 
 variable "eks_node_instance_types" {
   description = "Instance types for EKS nodes"
   type        = list(string)
-  default     = ["t3.medium"]
+  default     = ["t3.large"]
 }
 
 variable "eks_node_desired_size" {
   description = "Desired number of EKS nodes"
   type        = number
-  default     = 2
+  default     = 3
 }
 
 variable "eks_node_min_size" {
   description = "Minimum number of EKS nodes"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "eks_node_max_size" {
   description = "Maximum number of EKS nodes"
   type        = number
-  default     = 4
+  default     = 5
 }
 
 variable "jenkins_key_pair_name" {

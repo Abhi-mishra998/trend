@@ -1,0 +1,38 @@
+# Trend App DevOps Configuration
+# This file is created by setup-wizard.sh
+
+# Project Information
+project:
+  name: "trend-app"
+  environment: "production"
+
+# AWS Configuration
+aws:
+  account_id: "123456789012"
+  region: "ap-south-1"
+  profile: "default"
+
+# DockerHub Configuration
+dockerhub:
+  username: "yourusername"
+  repository: "yourusername/trend-app"
+
+# Jenkins Configuration
+jenkins:
+  instance_type: "t3.large"
+
+# EKS Configuration
+eks:
+  cluster_name: "trend-app-eks-by-abhi"
+  version: "1.31"
+  nodes:
+    instance_type: "t3.large"
+    desired_size: 3
+    min_size: 2
+    max_size: 5
+
+# Monitoring Configuration
+monitoring:
+  enabled: true
+  grafana:
+    admin_password: "changeme123"

@@ -92,7 +92,7 @@ validate_aws_account_id() {
 
 validate_aws_region() {
     local region="$1"
-    local valid_regions=("us-east-1" "us-east-2" "us-west-1" "us-west-2" "eu-west-1" "eu-west-2" "eu-central-1" "ap-southeast-1" "ap-southeast-2" "ap-northeast-1")
+    local valid_regions=("ap-south-1" "us-east-1" "us-east-2" "us-west-1" "us-west-2" "eu-west-1" "eu-west-2" "eu-central-1" "ap-southeast-1" "ap-southeast-2" "ap-northeast-1")
     
     for valid_region in "${valid_regions[@]}"; do
         if [ "$region" = "$valid_region" ]; then
@@ -225,7 +225,7 @@ main() {
         AWS_ACCOUNT_ID=$(prompt_input "AWS Account ID" "" "validate_aws_account_id")
     fi
     
-    AWS_REGION=$(prompt_input "AWS Region" "us-east-1" "validate_aws_region")
+    AWS_REGION=$(prompt_input "AWS Region" "ap-south-1" "validate_aws_region")
     AWS_PROFILE=$(prompt_input "AWS CLI Profile" "default" "")
     
     echo ""
