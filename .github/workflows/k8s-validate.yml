@@ -1,0 +1,45 @@
+name: Kubernetes Validation
+
+on:
+  pull_request:
+    paths:
+      - 'k8s/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'k8s/**'
+
+jobs:
+  validate:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup kubectl
+      uses: azure/setup-kubectl@v3
+      with:
+        version: 'latest'
+    
+    - name: Validate YAML syntax
+      run: |
+        for file in k8s/*.yaml; do
+          echo "Validating $file"
+          kubectl apply --dry-run=client -f "$file"
+        done
+    
+    - name: Install kubeval
+      run: |
+        wget https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz
+        tar xf kubeval-linux-amd64.tar.gz
+        sudo mv kubeval /usr/local/bin
+    
+    - name: Run kubeval
+      run: |
+        for file in k8s/*.yaml; do
+          echo "Validating $file with kubeval"
+          kubeval "$file"
+        done

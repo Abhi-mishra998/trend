@@ -1,0 +1,51 @@
+---
+# ResourceQuota to limit resource consumption in trend-app namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: trend-app-quota
+  namespace: trend-app
+spec:
+  hard:
+    # Pod limits
+    pods: "50"
+    # Compute limits
+    requests.cpu: "20"
+    requests.memory: "20Gi"
+    limits.cpu: "40"
+    limits.memory: "40Gi"
+    # Storage limits (if using PersistentVolumes)
+    persistentvolumeclaims: "10"
+    requests.storage: "200Gi"
+
+---
+# LimitRange to set default resource requests/limits per pod
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: trend-app-limits
+  namespace: trend-app
+spec:
+  limits:
+    # Default limits for containers
+    - max:
+        cpu: "2"
+        memory: "2Gi"
+      min:
+        cpu: "100m"
+        memory: "128Mi"
+      default:
+        cpu: "500m"
+        memory: "512Mi"
+      defaultRequest:
+        cpu: "250m"
+        memory: "256Mi"
+      type: Container
+    # Default limits for pods
+    - max:
+        cpu: "4"
+        memory: "4Gi"
+      min:
+        cpu: "100m"
+        memory: "128Mi"
+      type: Pod

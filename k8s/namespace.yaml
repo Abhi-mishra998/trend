@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: trend-app
+  labels:
+    name: trend-app
+    environment: production

@@ -1,0 +1,39 @@
+{
+  "dashboard": {
+    "title": "Kubernetes Cluster Monitoring",
+    "tags": ["kubernetes", "cluster"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "Cluster CPU Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(rate(container_cpu_usage_seconds_total[5m]))",
+            "legendFormat": "CPU Usage"
+          }
+        ]
+      },
+      {
+        "title": "Cluster Memory Usage",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "sum(container_memory_usage_bytes)",
+            "legendFormat": "Memory Usage"
+          }
+        ]
+      },
+      {
+        "title": "Pod Count",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "count(kube_pod_info)",
+            "legendFormat": "Total Pods"
+          }
+        ]
+      }
+    ]
+  }
+}
