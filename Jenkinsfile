@@ -3,10 +3,9 @@ pipeline {
 
     environment {
         DOCKERHUB_REPO = 'abhishek8056/trend-app'
-        DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
+        DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds' // Jenkins DockerHub credentials
         IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
         NAMESPACE = 'trend-app'
-        // Optional: If you want to use the EC2 kubeconfig path directly
         KUBECONFIG_PATH = '/home/ec2-user/.kube/config'
     }
 
@@ -20,15 +19,21 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    sh """
-                        docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
-                        docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
+                    withCredentials([usernamePassword(
+                        credentialsId: "${DOCKERHUB_CREDENTIAL_ID}",
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )]) {
+                        sh """
+                            docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
+                            docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
 
-                        echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
-                        docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                        docker push ${DOCKERHUB_REPO}:latest
-                        docker logout
-                    """
+                            echo \$DOCKER_PASS | docker login -u \$DOCKER_USER --password-stdin
+                            docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                            docker push ${DOCKERHUB_REPO}:latest
+                            docker logout
+                        """
+                    }
                 }
             }
         }
@@ -36,14 +41,13 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    // Using EC2 kubeconfig directly
                     sh """
                         export KUBECONFIG=${KUBECONFIG_PATH}
 
                         # Create namespace if it doesn't exist
                         kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                        # Apply manifests
+                        # Apply all Kubernetes manifests
                         kubectl apply -f k8s/
 
                         # Update deployment with new image
