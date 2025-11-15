@@ -47,7 +47,7 @@ pipeline {
                     steps {
                         sh '''
                             if command -v kubeval &> /dev/null; then
-                                kubeval k8s/*.yaml || true
+                                kubeval k8s/*.yaml --kubernetes-version 1.29.0 || true
                             else
                                 echo "kubeval not installed, skipping..."
                             fi
@@ -73,20 +73,24 @@ pipeline {
             steps {
                 script {
                     echo 'Testing Docker image...'
-                    sh """
-                        # Run container in background
-                        docker run -d --name test-container -p 3001:3000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                        
-                        # Wait for container to be ready
-                        sleep 10
-                        
-                        # Test HTTP endpoint
-                        curl -f http://localhost:3001 || exit 1
-                        
-                        # Cleanup
-                        docker stop test-container
-                        docker rm test-container
-                    """
+                        sh """
+                            # Run container in background
+                            docker run -d --name test-container -p 3001:3000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
+
+                            # Wait for container to be ready
+                            sleep 10
+
+                            # Test HTTP endpoint
+                            if command -v curl &> /dev/null; then
+                                curl -f http://localhost:3001 || exit 1
+                            else
+                                docker exec test-container wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
+                            fi
+
+                            # Cleanup
+                            docker stop test-container
+                            docker rm test-container
+                        """
                 }
             }
         }
@@ -119,19 +123,21 @@ pipeline {
                         sh """
                             # Create namespace if not exists
                             kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-                            
+
+                            # Apply all Kubernetes manifests
+                            kubectl apply -f k8s/namespace.yaml
+                            kubectl apply -f k8s/deployment.yaml
+                            kubectl apply -f k8s/service.yaml
+                            kubectl apply -f k8s/hpa.yaml
+
                             # Update deployment image
                             kubectl set image deployment/trend-app-deployment \
                                 trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} \
-                                -n ${NAMESPACE} || \
-                            kubectl apply -f k8s/namespace.yaml && \
-                            kubectl apply -f k8s/deployment.yaml && \
-                            kubectl apply -f k8s/service.yaml && \
-                            kubectl apply -f k8s/hpa.yaml
-                            
+                                -n ${NAMESPACE}
+
                             # Wait for rollout
                             kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=5m
-                            
+
                             # Verify deployment
                             kubectl get pods -n ${NAMESPACE}
                             kubectl get svc -n ${NAMESPACE}
