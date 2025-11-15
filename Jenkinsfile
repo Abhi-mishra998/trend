@@ -4,7 +4,7 @@ pipeline {
     environment {
         DOCKERHUB_REPO = 'abhishek8056/trend-app'
         DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
-        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-creds'
+        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig-creds' // Secret file type
         IMAGE_TAG = "${env.GIT_COMMIT.take(7)}"
         NAMESPACE = 'trend-app'
     }
@@ -126,13 +126,13 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_CONTENT')]) {
-                        sh '''
-                            echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig
-                            export KUBECONFIG=/tmp/kubeconfig
+                    // Use file credentials type for kubeconfig
+                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG')]) {
+                        sh """
+                            export KUBECONFIG=${KUBECONFIG}
 
                             # Create namespace if it doesn't exist
-                            kubectl create namespace ''' + NAMESPACE + ''' --dry-run=client -o yaml | kubectl apply -f -
+                            kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
                             # Apply Kubernetes manifests
                             kubectl apply -f k8s/namespace.yaml || true
@@ -143,11 +143,11 @@ pipeline {
                             kubectl apply -f k8s/network-policy.yaml || true
 
                             # Update the deployment with the new image
-                            kubectl set image deployment/trend-app-deployment trend-app=''' + DOCKERHUB_REPO + ''':''' + IMAGE_TAG + ''' -n ''' + NAMESPACE + '''
+                            kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
                             # Wait for rollout to complete
-                            kubectl rollout status deployment/trend-app-deployment -n ''' + NAMESPACE + ''' --timeout=5m
-                        '''
+                            kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=5m
+                        """
                     }
                 }
             }
@@ -156,23 +156,22 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    withCredentials([string(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG_CONTENT')]) {
-                        sh '''
-                            echo "$KUBECONFIG_CONTENT" | base64 -d > /tmp/kubeconfig
-                            export KUBECONFIG=/tmp/kubeconfig
+                    withCredentials([file(credentialsId: "${KUBECONFIG_CREDENTIAL_ID}", variable: 'KUBECONFIG')]) {
+                        sh """
+                            export KUBECONFIG=${KUBECONFIG}
 
                             echo "Checking pod status..."
-                            kubectl get pods -n ''' + NAMESPACE + '''
+                            kubectl get pods -n ${NAMESPACE}
 
                             echo "Checking service status..."
-                            kubectl get svc -n ''' + NAMESPACE + '''
+                            kubectl get svc -n ${NAMESPACE}
 
                             echo "Waiting for pods to be ready..."
-                            kubectl wait --for=condition=ready pod -l app=trend-app -n ''' + NAMESPACE + ''' --timeout=300s
+                            kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=300s
 
                             echo "External URL:"
-                            kubectl get svc trend-app-service -n ''' + NAMESPACE + ''' -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" || echo "LoadBalancer pending..."
-                        '''
+                            kubectl get svc trend-app-service -n ${NAMESPACE} -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" || echo "LoadBalancer pending..."
+                        """
                     }
                 }
             }
