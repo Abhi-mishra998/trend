@@ -7,7 +7,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -35,21 +35,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Start app
 CMD ["serve", "-s", "dist", "-l", "3000"]
-
-# dockerfile
-# # Stage 1: Build
-# FROM node:18-alpine AS builder
-# WORKDIR /app
-# COPY package*.json ./
-# RUN npm ci
-# COPY . .
-# RUN npm run build
-
-# # Stage 2: Runtime
-# FROM node:18-alpine
-# RUN npm install -g serve
-# COPY --from=builder /app/dist /app/dist
-# EXPOSE 3000
-# HEALTHCHECK CMD wget --quiet --tries=1 --spider http://localhost:3000 || exit 1
-# CMD ["serve", "-s", "dist", "-l", "3000"]
-
