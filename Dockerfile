@@ -1,21 +1,4 @@
-# Stage 1: Build React app
-FROM node:18-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm install
-
-# Copy source code
-COPY . .
-
-# Build React app
-RUN npm run build
-
-# Stage 2: Production runtime
+# Stage 1: Production runtime
 FROM node:18-alpine
 
 WORKDIR /app
@@ -23,8 +6,8 @@ WORKDIR /app
 # Install serve to run React app
 RUN npm install -g serve
 
-# Copy built dist folder from builder stage
-COPY --from=builder /app/dist ./dist
+# Copy pre-built dist folder
+COPY dist ./dist
 
 # Expose port
 EXPOSE 3000

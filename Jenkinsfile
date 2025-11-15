@@ -82,8 +82,17 @@ pipeline {
 
                         docker run -d --name test-container -p 3001:3000 ${DOCKERHUB_REPO}:${IMAGE_TAG}
 
-                        sleep 10
+                        # Wait for the container to be healthy
+                        for i in {1..30}; do
+                            if curl -f http://localhost:3001 > /dev/null 2>&1; then
+                                echo 'App is responding!'
+                                break
+                            fi
+                            echo "Waiting for app to start... attempt \$i"
+                            sleep 5
+                        done
 
+                        # Final check
                         curl -f http://localhost:3001 || exit 1
 
                         docker stop test-container || true
@@ -121,15 +130,21 @@ pipeline {
                         sh """
                             export KUBECONFIG=${KUBECONFIG}
 
+                            # Create namespace if it doesn't exist
                             kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                            kubectl apply -f k8s/namespace.yaml
+                            # Apply Kubernetes manifests
+                            kubectl apply -f k8s/namespace.yaml || true
                             kubectl apply -f k8s/deployment.yaml
                             kubectl apply -f k8s/service.yaml
-                            kubectl apply -f k8s/hpa.yaml
+                            kubectl apply -f k8s/hpa.yaml || true
+                            kubectl apply -f k8s/resource-quota.yaml || true
+                            kubectl apply -f k8s/network-policy.yaml || true
 
+                            # Update the deployment with the new image
                             kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
+                            # Wait for rollout to complete
                             kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=5m
                         """
                     }
@@ -144,9 +159,14 @@ pipeline {
                         sh """
                             export KUBECONFIG=${KUBECONFIG}
 
+                            echo "Checking pod status..."
                             kubectl get pods -n ${NAMESPACE}
 
+                            echo "Checking service status..."
                             kubectl get svc -n ${NAMESPACE}
+
+                            echo "Waiting for pods to be ready..."
+                            kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=300s
 
                             echo "External URL:"
                             kubectl get svc trend-app-service -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "LoadBalancer pending..."
