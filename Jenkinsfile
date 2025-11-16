@@ -17,22 +17,18 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
+        stage('Install Dependencies & Build Application') {
             steps {
                 sh '''
-                echo "📦 Installing Node.js dependencies..."
-                npm install
-                echo "✅ Dependencies installed"
-                '''
-            }
-        }
-
-        stage('Build Application') {
-            steps {
-                sh '''
-                echo "🔨 Building React application..."
-                npm run build
-                echo "✅ Application built successfully"
+                echo "📦 Installing Node.js dependencies and building application..."
+                docker run --rm -v $PWD:/app -w /app node:18-alpine sh -c "
+                    echo 'Installing dependencies...' &&
+                    npm install &&
+                    echo 'Building application...' &&
+                    npm run build &&
+                    echo '✅ Build completed successfully'
+                "
+                echo "🔍 Checking build output..."
                 ls -la dist/ || echo "dist folder created"
                 '''
             }
