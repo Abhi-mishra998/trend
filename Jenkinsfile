@@ -6,30 +6,25 @@ pipeline {
         DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
         NAMESPACE = 'trend-app'
-        KUBECONFIG_PATH = '/var/lib/jenkins/.kube/config'
+        KUBECONFIG_PATH = 'kubeconfig-creds'
+        LB_URL = 'k8s-trendapp-trendapp-c1fc9d0bf7-c6d184859c49866d.elb.ap-south-1.amazonaws.com'
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
                 checkout scm
-                echo "✅ Code checked out from GitHub"
             }
         }
 
-        stage('Install Dependencies & Build Application') {
+        stage('Build Application') {
             steps {
                 sh '''
-                echo "📦 Installing Node.js dependencies and building application..."
                 docker run --rm -v $PWD:/app -w /app node:18-alpine sh -c "
-                    echo 'Installing dependencies...' &&
                     npm install &&
-                    echo 'Building application...' &&
-                    npm run build &&
-                    echo '✅ Build completed successfully'
+                    npm run build
                 "
-                echo "🔍 Checking build output..."
-                ls -la dist/ || echo "dist folder created"
                 '''
             }
         }
@@ -37,26 +32,19 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 sh '''
-                echo "🐳 Building Docker image..."
                 docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
                 docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
-                echo "✅ Docker image built: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
                 '''
             }
         }
 
-        stage('Push to DockerHub') {
+        stage('Push Docker Image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIAL_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIAL_ID}", usernameVariable: 'USER', passwordVariable: 'PASS')]) {
                     sh '''
-                    echo "🔐 Logging into DockerHub..."
-                    echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-
-                    echo "📤 Pushing image to DockerHub..."
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
                     docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_REPO}:latest
-
-                    echo "✅ Image pushed successfully: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
                     docker logout
                     '''
                 }
@@ -65,106 +53,37 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
-                    sh """
-                    echo "🚀 Deploying to Kubernetes..."
-                    export KUBECONFIG=\${KUBECONFIG_FILE}
+                withCredentials([file(credentialsId: "${KUBECONFIG_PATH}", variable: 'KC')]) {
+                    sh '''
+                    kubectl apply -f k8s/ --kubeconfig=$KC
 
-                    # Test cluster connection
-                    echo "🔗 Testing cluster connection..."
-                    kubectl cluster-info
+                    kubectl set image deployment/trend-app-deployment \
+                        trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} \
+                        -n ${NAMESPACE} --kubeconfig=$KC
 
-                    # Create namespace
-                    echo "📁 Creating namespace..."
-                    kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-
-                    # Apply Kubernetes manifests
-                    echo "📋 Applying Kubernetes manifests..."
-                    kubectl apply -f k8s/
-
-                    # Update deployment image
-                    echo "🔄 Updating deployment image..."
-                    kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
-
-                    # Wait for rollout
-                    echo "⏳ Waiting for deployment rollout..."
-                    kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=600s
-
-                    # Wait for pods to be ready
-                    echo "⏳ Waiting for pods to be ready..."
-                    kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=300s
-
-                    echo "✅ Deployment completed successfully!"
-                    """
+                    kubectl rollout status deployment/trend-app-deployment \
+                        -n ${NAMESPACE} --kubeconfig=$KC
+                    '''
                 }
             }
         }
 
         stage('Verify Deployment') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
-                    sh """
-                    echo "🔍 Verifying deployment..."
-                    export KUBECONFIG=\${KUBECONFIG_FILE}
-
-                    echo "=== DEPLOYMENT STATUS ==="
-                    kubectl get pods -n ${NAMESPACE}
-                    kubectl get svc -n ${NAMESPACE}
-
-                    # Get LoadBalancer URL
-                    LB_URL=\$(kubectl get svc trend-app-service -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
-
-                    if [ "\$LB_URL" != "pending" ] && [ -n "\$LB_URL" ]; then
-                        echo "🌐 LoadBalancer URL: http://\$LB_URL"
-                        echo "🩺 Testing application health..."
-                        if curl -f -m 30 http://\$LB_URL/; then
-                            echo "✅ Application is healthy and responding!"
-                        else
-                            echo "⚠️  Health check failed, but deployment completed"
-                        fi
-                    else
-                        echo "⏳ LoadBalancer still provisioning..."
-                        echo "📝 Check status manually: kubectl get svc -n ${NAMESPACE}"
-                    fi
-                    """
-                }
+                sh '''
+                echo "Application URL: http://${LB_URL}/"
+                curl -I --max-time 20 http://${LB_URL}/ || echo "Health check failed"
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "🎉 PIPELINE SUCCESSFUL!"
-            echo "📦 Image: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-            echo "🚀 Deployed to namespace: ${NAMESPACE}"
-            echo "🌐 Check LoadBalancer URL above for application access"
+            echo "Pipeline completed successfully"
         }
         failure {
-            echo "❌ PIPELINE FAILED!"
-            script {
-                try {
-                    withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
-                        sh """
-                        echo "=== DEBUG INFORMATION ==="
-                        export KUBECONFIG=\${KUBECONFIG_FILE}
-                        echo "Recent pods:"
-                        kubectl get pods -n ${NAMESPACE} --sort-by=.metadata.creationTimestamp | tail -5
-                        echo "Recent events:"
-                        kubectl get events -n ${NAMESPACE} --sort-by=.metadata.creationTimestamp | tail -10
-                        """
-                    }
-                } catch (Exception e) {
-                    echo "Could not retrieve debug info: ${e.getMessage()}"
-                }
-            }
-        }
-        always {
-            sh '''
-            echo "🧹 Cleaning up workspace..."
-            docker system prune -f || true
-            rm -rf node_modules dist || true
-            echo "✅ Cleanup completed"
-            '''
+            echo "Pipeline failed"
         }
     }
 }
