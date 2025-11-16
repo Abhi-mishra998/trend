@@ -1,6 +1,14 @@
 # Monitoring Setup
 
-This directory contains the monitoring configuration for the Trend App using Prometheus and Grafana.
+This directory contains monitoring configuration files for the Trend App using Prometheus and Grafana.
+
+## Current Status
+
+**✅ Monitoring Already Installed on Jenkins EC2**
+
+- Prometheus and Grafana are already running
+- Grafana password: `abhi abhi`
+- Username: `admin`
 
 ## Components
 
@@ -9,129 +17,76 @@ This directory contains the monitoring configuration for the Trend App using Pro
 - **Node Exporter**: System metrics from nodes
 - **Kube State Metrics**: Kubernetes object metrics
 
-## Installation
+## Accessing Your Monitoring
 
-1. Ensure you have Helm and kubectl installed and configured for your cluster.
+### Grafana
 
-2. Run the installation script:
-   ```bash
-   cd monitoring
-   chmod +x install-monitoring.sh
-   export GRAFANA_ADMIN_PASSWORD="your-secure-password"
-   ./install-monitoring.sh
-   ```
+```bash
+# Port forward from Jenkins EC2
+kubectl port-forward -n monitoring svc/grafana 3000:80
+```
 
-## Accessing the Monitoring Stack
+**Access:**
+
+- URL: http://localhost:3000
+- Username: `admin`
+- Password: `abhi abhi`
 
 ### Prometheus
 
 ```bash
+# Port forward from Jenkins EC2
 kubectl port-forward -n monitoring svc/prometheus-server 9090:80
 ```
 
 Visit: http://localhost:9090
 
-### Grafana
-
-```bash
-kubectl get svc -n monitoring grafana -o wide
-```
-
-Use the LoadBalancer EXTERNAL-IP on port 80.
-
-**Default Credentials:**
-
-- Username: `admin`
-- Password: The password you set in `GRAFANA_ADMIN_PASSWORD`
-
 ## Available Dashboards
 
 1. **Kubernetes Cluster Monitoring** (ID: 7249)
-
-   - Cluster-wide CPU and memory usage
-   - Pod counts and status
-
 2. **Kubernetes Pods** (ID: 6417)
-
-   - Detailed pod metrics
-   - Resource usage per pod
-
 3. **Node Exporter** (ID: 1860)
-
-   - System-level metrics from nodes
-   - CPU, memory, disk, network stats
-
 4. **Trend App Monitoring** (Custom)
-   - Application-specific metrics
-   - Response times, request rates
-   - Pod resource usage
-   - Application health status
-
-## Metrics Collected
-
-### Application Metrics (Trend App)
-
-- HTTP request duration and rates
-- Application response times (95th/50th percentiles)
-- CPU and memory usage per pod
-- Pod status and counts
-
-### Infrastructure Metrics
-
-- Node CPU, memory, disk, and network usage
-- Kubernetes cluster health
-- Pod lifecycle events
-- Service discovery metrics
 
 ## Configuration Files
 
 - `prometheus-values.yaml`: Prometheus Helm chart configuration
 - `grafana-values.yaml`: Grafana Helm chart configuration with custom dashboard
-- `install-monitoring.sh`: Automated installation script
 - `dashboards/kubernetes-cluster-dashboard.json`: Custom dashboard JSON
+
+## Verification Commands
+
+```bash
+# Check monitoring components
+kubectl get all -n monitoring
+
+# Check Prometheus targets
+kubectl port-forward -n monitoring svc/prometheus-server 9090:80
+# Visit: http://localhost:9090/targets
+
+# Check Grafana dashboards
+kubectl port-forward -n monitoring svc/grafana 3000:80
+# Visit: http://localhost:3000 (admin/abhi abhi)
+```
 
 ## Troubleshooting
 
-### Check Prometheus Targets
-
-```bash
-kubectl port-forward -n monitoring svc/prometheus-server 9090:80
-```
-
-Visit: http://localhost:9090/targets
-
-### Check Grafana Logs
-
-```bash
-kubectl logs -n monitoring deployment/grafana
-```
-
-### Check Prometheus Logs
+### Check Logs
 
 ```bash
 kubectl logs -n monitoring deployment/prometheus-server
+kubectl logs -n monitoring deployment/grafana
 ```
 
-### Verify Monitoring Namespace
+### Verify Targets
 
 ```bash
-kubectl get all -n monitoring
+kubectl port-forward -n monitoring svc/prometheus-server 9090:80
+# Visit http://localhost:9090/targets
 ```
 
 ## Security Notes
 
-- Change the default Grafana password in production
-- Consider using ingress controllers for secure access
-- Review network policies for monitoring traffic
+- Current password is `abhi abhi` - consider changing in production
 - Use RBAC for Grafana user management
-
-## Updating
-
-To update the monitoring stack:
-
-```bash
-cd monitoring
-./install-monitoring.sh
-```
-
-This will upgrade existing installations with the latest configurations.
+- Review network policies for monitoring traffic
