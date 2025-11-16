@@ -44,6 +44,8 @@ module "jenkins" {
   security_group_ids   = [module.security_groups.jenkins_sg_id]
   iam_instance_profile = module.iam.jenkins_instance_profile_name
   key_name             = var.jenkins_key_pair_name # Create EC2 key pair first
+  cluster_name         = var.eks_cluster_name
+  aws_region           = var.aws_region
 }
 
 # EKS Module

@@ -25,6 +25,8 @@ resource "aws_instance" "jenkins" {
 
   user_data = base64encode(templatefile("${path.module}/user-data.sh", {
     project_name = var.project_name
+    cluster_name = var.cluster_name
+    aws_region   = var.aws_region
   }))
 
   root_block_device {

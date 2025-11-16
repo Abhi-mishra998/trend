@@ -3,7 +3,7 @@ server:
   persistentVolume:
     enabled: true
     size: 20Gi
-  
+
   resources:
     requests:
       cpu: 500m
@@ -34,7 +34,7 @@ pushgateway:
 serverFiles:
   prometheus.yml:
     scrape_configs:
-      - job_name: 'kubernetes-apiservers'
+      - job_name: "kubernetes-apiservers"
         kubernetes_sd_configs:
           - role: endpoints
         scheme: https
@@ -42,11 +42,16 @@ serverFiles:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
         relabel_configs:
-          - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+          - source_labels:
+              [
+                __meta_kubernetes_namespace,
+                __meta_kubernetes_service_name,
+                __meta_kubernetes_endpoint_port_name,
+              ]
             action: keep
             regex: default;kubernetes;https
 
-      - job_name: 'kubernetes-nodes'
+      - job_name: "kubernetes-nodes"
         kubernetes_sd_configs:
           - role: node
         scheme: https
@@ -54,24 +59,26 @@ serverFiles:
           ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
         bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
 
-      - job_name: 'kubernetes-pods'
+      - job_name: "kubernetes-pods"
         kubernetes_sd_configs:
           - role: pod
         relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          - source_labels:
+              [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
             action: keep
             regex: true
           - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
             action: replace
             target_label: __metrics_path__
             regex: (.+)
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          - source_labels:
+              [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
             action: replace
             regex: ([^:]+)(?::\d+)?;(\d+)
             replacement: $1:$2
             target_label: __address__
 
-      - job_name: 'trend-app'
+      - job_name: "trend-app"
         kubernetes_sd_configs:
           - role: pod
             namespaces:
@@ -81,3 +88,19 @@ serverFiles:
           - source_labels: [__meta_kubernetes_pod_label_app]
             action: keep
             regex: trend-app
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: "3000"
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            action: replace
+            target_label: container
+        scrape_interval: 15s
+        scrape_timeout: 10s

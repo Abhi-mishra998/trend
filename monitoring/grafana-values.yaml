@@ -4,30 +4,30 @@ persistence:
   size: 10Gi
 
 adminUser: admin
-adminPassword: {{GRAFANA_ADMIN_PASSWORD}}
+adminPassword: { { GRAFANA_ADMIN_PASSWORD } }
 
 datasources:
   datasources.yaml:
     apiVersion: 1
     datasources:
-    - name: Prometheus
-      type: prometheus
-      url: http://prometheus-server.monitoring.svc.cluster.local
-      access: proxy
-      isDefault: true
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server.monitoring.svc.cluster.local
+        access: proxy
+        isDefault: true
 
 dashboardProviders:
   dashboardproviders.yaml:
     apiVersion: 1
     providers:
-    - name: 'default'
-      orgId: 1
-      folder: ''
-      type: file
-      disableDeletion: false
-      editable: true
-      options:
-        path: /var/lib/grafana/dashboards/default
+      - name: "default"
+        orgId: 1
+        folder: ""
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards/default
 
 dashboards:
   default:
@@ -43,6 +43,76 @@ dashboards:
       gnetId: 1860
       revision: 27
       datasource: Prometheus
+    trend-app-dashboard:
+      json: |
+        {
+          "dashboard": {
+            "title": "Trend App Monitoring",
+            "tags": ["trend-app", "application"],
+            "timezone": "browser",
+            "refresh": "30s",
+            "panels": [
+              {
+                "title": "Trend App Response Time",
+                "type": "graph",
+                "targets": [
+                  {
+                    "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=\"trend-app\"}[5m]))",
+                    "legendFormat": "95th percentile"
+                  },
+                  {
+                    "expr": "histogram_quantile(0.50, rate(http_request_duration_seconds_bucket{job=\"trend-app\"}[5m]))",
+                    "legendFormat": "50th percentile"
+                  }
+                ]
+              },
+              {
+                "title": "Trend App Request Rate",
+                "type": "graph",
+                "targets": [
+                  {
+                    "expr": "rate(http_requests_total{job=\"trend-app\"}[5m])",
+                    "legendFormat": "Requests/sec"
+                  }
+                ]
+              },
+              {
+                "title": "Trend App CPU Usage",
+                "type": "graph",
+                "targets": [
+                  {
+                    "expr": "rate(container_cpu_usage_seconds_total{namespace=\"trend-app\",pod=~\"trend-app-.*\"}[5m])",
+                    "legendFormat": "{{pod}}"
+                  }
+                ]
+              },
+              {
+                "title": "Trend App Memory Usage",
+                "type": "graph",
+                "targets": [
+                  {
+                    "expr": "container_memory_usage_bytes{namespace=\"trend-app\",pod=~\"trend-app-.*\"}",
+                    "legendFormat": "{{pod}}"
+                  }
+                ]
+              },
+              {
+                "title": "Trend App Pod Status",
+                "type": "stat",
+                "targets": [
+                  {
+                    "expr": "count(kube_pod_info{namespace=\"trend-app\"})",
+                    "legendFormat": "Total Pods"
+                  },
+                  {
+                    "expr": "count(kube_pod_status_ready{namespace=\"trend-app\",condition=\"true\"})",
+                    "legendFormat": "Ready Pods"
+                  }
+                ]
+              }
+            ]
+          }
+        }
 
 service:
   type: LoadBalancer

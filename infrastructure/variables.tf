@@ -62,7 +62,7 @@ variable "jenkins_instance_type" {
 variable "jenkins_ami" {
   description = "AMI ID for Jenkins EC2 (leave empty for latest Amazon Linux 2 or add it )"
   type        = string
-  default     = "ami-0cae6d6fe6048ca2c"
+  default     = ""
 }
 
 variable "eks_cluster_name" {

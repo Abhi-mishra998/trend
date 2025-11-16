@@ -16,6 +16,18 @@ pipeline {
             }
         }
 
+        stage('Install Dependencies & Build App') {
+            steps {
+                sh '''
+                # Install Node.js dependencies
+                npm install
+
+                # Build the React app (creates dist/ folder)
+                npm run build
+                '''
+            }
+        }
+
         stage('Lint & Validate') {
             parallel {
                 stage('Dockerfile Lint') {
@@ -32,7 +44,7 @@ pipeline {
                         command -v kubeval >/dev/null 2>&1 || echo "Kubeval not installed"
                         for file in k8s/*.yaml; do
                             echo "Validating: $file"
-                            kubeval "$file" --kubernetes-version 1.28.0 --ignore-missing-schemas || true
+                            kubeval "$file" --kubernetes-version 1.31.0 --ignore-missing-schemas || true
                         done
                         '''
                     }
@@ -44,8 +56,11 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIAL_ID}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
+                    # Build Docker image (now that dist/ exists from build stage)
                     docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
                     docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
+
+                    # Login and push
                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
                     docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
                     docker push ${DOCKERHUB_REPO}:latest
@@ -68,16 +83,16 @@ pipeline {
                         # Create namespace if it doesn't exist
                         kubectl create namespace ${NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
 
-                        # Apply manifests (Service should expose ports 80/443)
+                        # Apply all Kubernetes manifests
                         kubectl apply -f k8s/
 
                         # Update deployment with new image
                         kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
 
-                        # Wait for rollout
+                        # Wait for rollout to complete
                         kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE} --timeout=10m
 
-                        # Wait for pods to be ready (retry to avoid SG or network issues)
+                        # Wait for pods to be ready
                         kubectl wait --for=condition=ready pod -l app=trend-app -n ${NAMESPACE} --timeout=600s
                         """
                     }
@@ -90,10 +105,24 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
                     sh """
                     export KUBECONFIG=\${KUBECONFIG_FILE}
+
+                    echo "=== Deployment Verification ==="
                     echo "Pods in namespace ${NAMESPACE}:"
                     kubectl get pods -n ${NAMESPACE}
+
                     echo "Services in namespace ${NAMESPACE}:"
                     kubectl get svc -n ${NAMESPACE}
+
+                    echo "Checking application health:"
+                    # Get LoadBalancer URL and test it
+                    LB_URL=\$(kubectl get svc trend-app-service -n ${NAMESPACE} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "pending")
+                    if [ "\$LB_URL" != "pending" ]; then
+                        echo "LoadBalancer URL: http://\$LB_URL"
+                        # Test health check endpoint
+                        curl -f -m 10 http://\$LB_URL/ || echo "Health check failed, but deployment may still be initializing"
+                    else
+                        echo "LoadBalancer still pending..."
+                    fi
                     """
                 }
             }
@@ -103,12 +132,33 @@ pipeline {
     post {
         success {
             echo "🎉 Deployment successful: ${DOCKERHUB_REPO}:${IMAGE_TAG}"
+            echo "Application should be available at the LoadBalancer URL shown above"
         }
         failure {
             echo "❌ Pipeline failed!"
+            script {
+                // Try to get some debug info on failure
+                try {
+                    withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                        export KUBECONFIG=\${KUBECONFIG_FILE}
+                        echo "=== Debug Info ==="
+                        kubectl get pods -n ${NAMESPACE}
+                        kubectl get events -n ${NAMESPACE} --sort-by=.metadata.creationTimestamp | tail -10
+                        """
+                    }
+                } catch (Exception e) {
+                    echo "Could not retrieve debug info: ${e.getMessage()}"
+                }
+            }
         }
         always {
-            sh "docker system prune -f || true"
+            sh '''
+            # Clean up Docker images and containers
+            docker system prune -f || true
+            # Clean up build artifacts
+            rm -rf node_modules dist || true
+            '''
         }
     }
 }

@@ -7,6 +7,7 @@
 ## 📌 What This Project Does
 
 Deploys a React application (Trend app) to AWS EKS with:
+
 - ✅ Docker containerization
 - ✅ Terraform infrastructure (VPC, EKS, Jenkins)
 - ✅ Jenkins CI/CD pipeline
@@ -44,41 +45,51 @@ bash scripts/deploy-all.sh
 #### On Windows (Git Bash Required)
 
 **1.1 Install Git Bash**
+
 ```powershell
 # Download: https://git-scm.com/download/win
 # Install and open "Git Bash" for all commands below
 ```
 
 **1.2 Install AWS CLI**
+
 ```powershell
 # Download: https://awscli.amazonaws.com/AWSCLIV2.msi
 # Or use Chocolatey:
 choco install awscli
 ```
+
 **Verify:**
+
 ```bash
 aws --version
 # Expected: aws-cli/2.x.x
 ```
 
 **1.3 Install Terraform**
+
 ```powershell
 # Download: https://www.terraform.io/downloads
 # Or use Chocolatey:
 choco install terraform
 ```
+
 **Verify:**
+
 ```bash
 terraform --version
 # Expected: Terraform v1.5.x or higher
 ```
 
 **1.4 Install Docker Desktop**
+
 ```powershell
 # Download: https://www.docker.com/products/docker-desktop
 # Start Docker Desktop after installation
 ```
+
 **Verify:**
+
 ```bash
 docker --version
 docker ps
@@ -86,12 +97,15 @@ docker ps
 ```
 
 **1.5 Install kubectl**
+
 ```powershell
 # Download: https://kubernetes.io/docs/tasks/tools/install-kubectl-windows/
 # Or use Chocolatey:
 choco install kubernetes-cli
 ```
+
 **Verify:**
+
 ```bash
 kubectl version --client
 # Expected: Client Version: v1.27.x or higher
@@ -104,15 +118,19 @@ kubectl version --client
 **2.1 Get AWS Credentials**
 
 You need:
+
 - AWS Access Key ID
 - AWS Secret Access Key
 - Permissions: EC2, EKS, IAM, VPC, ELB (full access)
 
 **2.2 Configure AWS CLI**
+
 ```bash
 aws configure
 ```
+
 Enter when prompted:
+
 ```
 AWS Access Key ID: [paste your key]
 AWS Secret Access Key: [paste your secret]
@@ -121,17 +139,21 @@ Default output format: json
 ```
 
 **2.3 Verify AWS Access**
+
 ```bash
 aws sts get-caller-identity
 ```
+
 **Expected output:**
+
 ```json
 {
-    "UserId": "AIDAXXXXXXXXXX",
-    "Account": "123456789012",
-    "Arn": "arn:aws:iam::123456789012:user/your-name"
+  "UserId": "AIDAXXXXXXXXXX",
+  "Account": "123456789012",
+  "Arn": "arn:aws:iam::123456789012:user/your-name"
 }
 ```
+
 **📝 SAVE YOUR ACCOUNT ID** (the 12-digit number) - you'll need it!
 
 ---
@@ -139,11 +161,13 @@ aws sts get-caller-identity
 ### STEP 3: Configure DockerHub
 
 **3.1 Create DockerHub Account**
+
 - Go to: https://hub.docker.com
 - Sign up (free account)
 - Remember your username
 
 **3.2 Create Repository**
+
 - Click "Create Repository"
 - Name: `trend-app`
 - Visibility: Public
@@ -162,12 +186,14 @@ bash scripts/setup-wizard.sh
 **You'll be asked:**
 
 **Q1: AWS Account ID?**
+
 ```
 Enter the 12-digit number from Step 2.3
 Example: 123456789012
 ```
 
 **Q2: AWS Region?**
+
 ```
 Default: ap-south-1 (Mumbai)
 Press Enter to use default
@@ -175,33 +201,39 @@ Other options: us-east-1, us-west-2, eu-west-1
 ```
 
 **Q3: AWS CLI Profile?**
+
 ```
 Press Enter to use "default"
 ```
 
 **Q4: DockerHub Username?**
+
 ```
 Enter your DockerHub username
 Example: abhishek8056
 ```
 
 **Q5: DockerHub Repository?**
+
 ```
 Format: username/trend-app
 Example: abhishek8056/trend-app
 ```
 
 **Q6: Jenkins Instance Type?**
+
 ```
 Press Enter to use t3.large (recommended)
 ```
 
 **Q7: EKS Node Instance Type?**
+
 ```
 Press Enter to use t3.large (recommended)
 ```
 
 **Q8: EKS Node Count?**
+
 ```
 Desired: 3
 Min: 2
@@ -210,12 +242,14 @@ Press Enter for defaults
 ```
 
 **Q9: Enable Monitoring?**
+
 ```
 Type: yes
 (Installs Prometheus + Grafana)
 ```
 
 **Q10: Grafana Password?**
+
 ```
 Enter a password (save it!)
 Example: MySecurePass123
@@ -234,6 +268,7 @@ bash scripts/validate-prerequisites.sh
 ```
 
 **Expected output:**
+
 ```
 [SUCCESS] AWS CLI (v2.x.x) - OK
 [SUCCESS] Terraform (v1.x.x) - OK
@@ -249,6 +284,7 @@ All prerequisites met! Ready to deploy.
 ```
 
 **❌ If any check fails:**
+
 - Install the missing tool
 - Fix AWS credentials: `aws configure`
 - Re-run validation
@@ -266,18 +302,21 @@ bash scripts/deploy-all.sh
 **What happens:**
 
 **Phase 1: Prerequisites (1 min)**
+
 ```
 ✓ Checking required commands
 ✓ Validating prerequisites
 ```
 
 **Phase 2: Terraform Init (2 min)**
+
 ```
 ✓ Initializing Terraform
 ✓ Downloading AWS provider
 ```
 
 **Phase 3: Infrastructure (15 min)**
+
 ```
 ✓ Creating VPC
 ✓ Creating subnets
@@ -289,12 +328,14 @@ bash scripts/deploy-all.sh
 ```
 
 **Phase 4: Kubeconfig (1 min)**
+
 ```
 ✓ Generating kubeconfig
 ✓ Connecting to EKS
 ```
 
 **Phase 5: Kubernetes (5 min)**
+
 ```
 ✓ Creating namespace
 ✓ Deploying application
@@ -304,12 +345,14 @@ bash scripts/deploy-all.sh
 ```
 
 **Phase 6: Monitoring (3 min)**
+
 ```
 ✓ Installing Prometheus
 ✓ Installing Grafana
 ```
 
 **Phase 7: Verification (1 min)**
+
 ```
 ✓ Checking cluster
 ✓ Checking pods
@@ -323,34 +366,44 @@ bash scripts/deploy-all.sh
 ## ✅ Verify Deployment
 
 ### Check Kubernetes Cluster
+
 ```bash
 kubectl get nodes
 ```
+
 **Expected:** 3 nodes in "Ready" status
 
 ### Check Application Pods
+
 ```bash
 kubectl get pods -n trend-app
 ```
+
 **Expected:** Pods in "Running" status
 
 ### Check Service
+
 ```bash
 kubectl get svc -n trend-app
 ```
+
 **Expected:** Service with EXTERNAL-IP (LoadBalancer)
 
 ### Get Application URL
+
 ```bash
 kubectl get svc trend-app-service -n trend-app -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
 ```
+
 **Copy the URL and open in browser** (wait 5-10 min for LoadBalancer)
 
 ### Get Jenkins URL
+
 ```bash
 cd infrastructure
 terraform output jenkins_url
 ```
+
 **Access Jenkins at this URL**
 
 ---
@@ -358,6 +411,7 @@ terraform output jenkins_url
 ## 🔧 Configure Jenkins
 
 ### Step 1: Access Jenkins
+
 ```bash
 # Get Jenkins URL
 cd infrastructure
@@ -368,15 +422,19 @@ terraform output jenkins_url
 ```
 
 ### Step 2: Setup Jenkins Kubeconfig
+
 ```bash
 # SSH to Jenkins EC2 instance
 # Run this command:
 sudo /usr/local/bin/update-jenkins-kubeconfig.sh
 ```
+
 **This fixes kubeconfig issues!**
 
 ### Step 3: Install Plugins
+
 In Jenkins UI:
+
 1. Go to "Manage Jenkins" → "Plugins"
 2. Install:
    - Docker Pipeline
@@ -385,6 +443,7 @@ In Jenkins UI:
    - Pipeline
 
 ### Step 4: Add Credentials
+
 1. Go to "Manage Jenkins" → "Credentials"
 2. Add DockerHub credentials:
    - Kind: Username with password
@@ -393,6 +452,7 @@ In Jenkins UI:
    - Password: your DockerHub password
 
 ### Step 5: Create Pipeline
+
 1. New Item → Pipeline
 2. Name: `trend-app-pipeline`
 3. Pipeline script from SCM
@@ -401,6 +461,7 @@ In Jenkins UI:
 6. Script Path: `Jenkinsfile`
 
 ### Step 6: Setup GitHub Webhook
+
 1. GitHub repo → Settings → Webhooks
 2. Add webhook:
    - URL: `http://[jenkins-url]/github-webhook/`
@@ -415,9 +476,11 @@ In Jenkins UI:
 ## 🆘 TROUBLESHOOTING
 
 ### Issue 1: AWS Credentials Not Working
+
 **Symptom:** `aws sts get-caller-identity` fails
 
 **Fix:**
+
 ```bash
 # Reconfigure AWS
 aws configure
@@ -429,9 +492,11 @@ aws sts get-caller-identity
 ---
 
 ### Issue 2: Docker Not Running
+
 **Symptom:** `docker ps` shows error
 
 **Fix:**
+
 ```bash
 # Start Docker Desktop (Windows)
 # Wait for Docker to fully start
@@ -441,9 +506,11 @@ docker ps
 ---
 
 ### Issue 3: Terraform Init Fails
+
 **Symptom:** Terraform initialization error
 
 **Fix:**
+
 ```bash
 cd infrastructure
 rm -rf .terraform .terraform.lock.hcl
@@ -453,9 +520,11 @@ terraform init
 ---
 
 ### Issue 4: EKS Cluster Not Accessible
+
 **Symptom:** `kubectl get nodes` fails
 
 **Fix:**
+
 ```bash
 # Regenerate kubeconfig
 aws eks update-kubeconfig --name trend-app-eks-by-abhi --region ap-south-1
@@ -467,9 +536,11 @@ kubectl get nodes
 ---
 
 ### Issue 5: Pods Not Starting (ImagePullBackOff)
+
 **Symptom:** Pods stuck in ImagePullBackOff
 
 **Fix:**
+
 ```bash
 # Check if image exists
 docker pull your-username/trend-app:latest
@@ -486,9 +557,11 @@ kubectl rollout restart deployment/trend-app-deployment -n trend-app
 ---
 
 ### Issue 6: LoadBalancer Stuck in Pending
+
 **Symptom:** Service shows `<pending>` for EXTERNAL-IP
 
 **Fix:**
+
 ```bash
 # Wait 10 minutes - LoadBalancers take time
 # Check status
@@ -501,9 +574,11 @@ kubectl get events -n trend-app --sort-by='.lastTimestamp'
 ---
 
 ### Issue 7: Jenkins Can't Access Kubernetes
+
 **Symptom:** Jenkins pipeline fails with kubeconfig error
 
 **Fix:**
+
 ```bash
 # SSH to Jenkins EC2 instance
 # Run kubeconfig update script
@@ -516,9 +591,11 @@ sudo -u jenkins kubectl get nodes
 ---
 
 ### Issue 8: Terraform Destroy Fails
+
 **Symptom:** Can't delete infrastructure
 
 **Fix:**
+
 ```bash
 # Delete Kubernetes resources first
 kubectl delete namespace trend-app --force --grace-period=0
@@ -534,9 +611,11 @@ terraform destroy -auto-approve
 ---
 
 ### Issue 9: Out of Memory / Resources
+
 **Symptom:** Pods crashing, nodes not ready
 
 **Fix:**
+
 ```bash
 # Check node resources
 kubectl top nodes
@@ -551,9 +630,11 @@ kubectl scale deployment trend-app-deployment --replicas=1 -n trend-app
 ---
 
 ### Issue 10: Can't Access Application
+
 **Symptom:** LoadBalancer URL not working
 
 **Fix:**
+
 ```bash
 # Get LoadBalancer URL
 kubectl get svc trend-app-service -n trend-app
@@ -574,6 +655,7 @@ kubectl run test --rm -it --image=busybox -- wget -O- http://trend-app-service.t
 ## 📊 Useful Commands
 
 ### Check Everything
+
 ```bash
 # Quick health check
 kubectl get nodes
@@ -582,6 +664,7 @@ kubectl get svc -n trend-app
 ```
 
 ### View Logs
+
 ```bash
 # Deployment logs
 cat logs/deployment-*.log
@@ -594,6 +677,7 @@ kubectl logs -f deployment/trend-app-deployment -n trend-app
 ```
 
 ### Scale Application
+
 ```bash
 # Scale to 5 replicas
 kubectl scale deployment trend-app-deployment --replicas=5 -n trend-app
@@ -603,6 +687,7 @@ kubectl get pods -n trend-app
 ```
 
 ### Restart Application
+
 ```bash
 # Restart all pods
 kubectl rollout restart deployment/trend-app-deployment -n trend-app
@@ -612,6 +697,7 @@ kubectl rollout status deployment/trend-app-deployment -n trend-app
 ```
 
 ### Check Events
+
 ```bash
 # Recent events
 kubectl get events -n trend-app --sort-by='.lastTimestamp'
@@ -621,6 +707,7 @@ kubectl get events -n trend-app --watch
 ```
 
 ### Debug Pod
+
 ```bash
 # Describe pod
 kubectl describe pod <pod-name> -n trend-app
@@ -633,6 +720,7 @@ kubectl top pod <pod-name> -n trend-app
 ```
 
 ### Check Infrastructure
+
 ```bash
 # Terraform outputs
 cd infrastructure
@@ -650,11 +738,13 @@ aws elbv2 describe-load-balancers --region ap-south-1
 ## 🧹 Cleanup (Delete Everything)
 
 ### Automated Cleanup
+
 ```bash
 bash scripts/cleanup-all.sh
 ```
 
 ### Manual Cleanup
+
 ```bash
 # 1. Delete Kubernetes resources
 kubectl delete namespace trend-app --force --grace-period=0
@@ -673,6 +763,7 @@ aws ec2 describe-vpcs --region us-east-1
 ```
 
 ### Verify AWS Costs
+
 ```bash
 # Check current costs in AWS Console
 # Billing → Cost Explorer
@@ -733,7 +824,7 @@ By completing this project, you'll understand:
 ✅ **Kubernetes** - Container orchestration  
 ✅ **GitHub Webhooks** - Auto-deployment  
 ✅ **Monitoring** - Prometheus & Grafana  
-✅ **DevOps** - End-to-end workflow  
+✅ **DevOps** - End-to-end workflow
 
 ---
 
@@ -808,10 +899,31 @@ Your deployment is successful when:
 ✅ Service has an EXTERNAL-IP (LoadBalancer)  
 ✅ Application is accessible via LoadBalancer URL  
 ✅ Jenkins can deploy to Kubernetes  
-✅ GitHub webhook triggers builds  
+✅ GitHub webhook triggers builds
 
 ---
 
 **🎉 You're ready to start! Follow the steps above and you'll have a production-ready deployment in 30 minutes!**
 
 **Questions? Check the Troubleshooting section or review the logs!**
+
+http://localhost:8080
+cd Trend-by-Abhi && kubectl port-forward svc/trend-app-service 8080:80 -n trend-app  
+Forwarding from 127.0.0.1:8080 -> 3000
+
+cd Trend-by-Abhi && kubectl get svc -n trend-app -w
+cd Trend-by-Abhi && kubectl describe svc trend-app-service -n trend-app
+kubectl describe svc trend-app-service -n trend-app
+kubectl get nodes -o wide
+kubectl describe pod controller-bf6bd556d-jfw67 -n metallb-system
+cd Trend-by-Abhi && kubectl apply -f k8s/
+cd Trend-by-Abhi && kubectl get svc -n trend-app
+cd Trend-by-Abhi && aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-083ba4e38e3114ac2" --query "Subnets[*].{ID:SubnetId,AZ:AvailabilityZone,Tags:Tags}" --output json
+cd Trend-by-Abhi && aws eks describe-cluster --name trend-app-eks-by-abhi --query "cluster.name" --output text
+cd Trend-by-Abhi && kubectl get nodes -o wide
+cd Trend-by-Abhi && kubectl get events -n trend-app --sort-by=.metadata.creationTimestamp | tail -20
+cd Trend-by-Abhi && kubectl get events -n trend-app --sort-by=.metadata.creationTimestamp
+cd Trend-by-Abhi && aws eks describe-cluster --name trend-app-eks-by-abhi --query "cluster.resourcesVpcConfig" --output json
+cd Trend-by-Abhi && aws ec2 describe-subnets --subnet-ids subnet-016f079baf283d82c --query "Subnets[*].{ID:SubnetId,AZ:AvailabilityZone,Tags:Tags}" --output json
+cd Trend-by-Abhi && kubectl port-forward svc/trend-app-service -n trend-app 8080:80
+cd Trend-by-Abhi && aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-083ba4e38e3114ac2" --query "Subnets[*].{ID:SubnetId,AZ:AvailabilityZone,Tags:Tags}" --output table

@@ -32,7 +32,7 @@ resource "aws_iam_role_policy_attachment" "eks_vpc_controller_attach" {
 # EKS NODE ROLE
 ################################
 resource "aws_iam_role" "eks_node" {
-  name = "${var.project_name}-eks-node-role-${var.environment}"
+  name = "${var.project_name}-eks-node-role-${var.environment}-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -66,7 +66,7 @@ resource "aws_iam_role_policy_attachment" "ecr_readonly" {
 # JENKINS ROLE + INSTANCE PROFILE
 ################################
 resource "aws_iam_role" "jenkins" {
-  name = "${var.project_name}-jenkins-role-${var.environment}"
+  name = "${var.project_name}-jenkins-role-${var.environment}-${random_string.suffix.result}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -83,6 +83,15 @@ resource "aws_iam_role" "jenkins" {
 }
 
 resource "aws_iam_instance_profile" "jenkins" {
-  name = "${var.project_name}-jenkins-profile-${var.environment}"
+  name = "${var.project_name}-jenkins-profile-${var.environment}-${random_string.suffix.result}"
   role = aws_iam_role.jenkins.name
+}
+
+# Random suffix for unique resource names
+resource "random_string" "suffix" {
+  length  = 6
+  lower   = true
+  upper   = false
+  numeric = true
+  special = false
 }
