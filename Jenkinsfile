@@ -47,6 +47,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS']]) {
                 withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBEFILE')]) {
                     sh '''
                     export KUBECONFIG=$KUBEFILE
@@ -54,6 +55,7 @@ pipeline {
                     kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
                     kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE}
                     '''
+                }
                 }
             }
         }
