@@ -30,6 +30,13 @@
 - [Cleanup & Teardown](#-cleanup--teardown)
 
 ---
+## 🎥 Project Demo Video
+
+Click below to watch the full Trend App demo video:
+
+👉 **[Watch Demo Video](https://drive.google.com/file/d/1k056nk5k4-pviVKDDrEnAtrIE6uTfNAG/view?usp=drive_link)**
+
+[![Watch Demo](https://img.shields.io/badge/Watch%20Demo%20Video-Google%20Drive-blue?logo=google-drive)](https://drive.google.com/file/d/1k056nk5k4-pviVKDDrEnAtrIE6uTfNAG/view?usp=drive_link)
 
 ## 🎯 Project Overview
 
