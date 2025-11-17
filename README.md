@@ -2324,7 +2324,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- Original Trend App by [@Vennilavan12](https://github.com/Vennilavan12)
 - AWS EKS Documentation Team
 - Kubernetes Community
 - Jenkins Open Source Contributors
