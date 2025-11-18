@@ -580,105 +580,87 @@ The `Jenkinsfile` defines the complete CI/CD pipeline:
 
 ```groovy
 pipeline {
-    agent any  // Run on any available Jenkins agent
-    
+    agent any
+
     environment {
-        // Environment variables available to all stages
-        DOCKERHUB_REPO = 'abhimishra/trend-app'  // Docker registry path
-        IMAGE_TAG = "${BUILD_NUMBER}"  // Unique tag per build (1, 2, 3...)
-        NAMESPACE = 'trend-app'  // Kubernetes namespace for deployment
+        DOCKERHUB_REPO = 'abhishek8056/trend-app'
+        DOCKERHUB_CREDENTIAL_ID = 'dockerhub-creds'
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+        NAMESPACE = 'trend-app'
+        HARDCODE_LB_URL = 'http://k8s-trendapp-trendapp-c1fc9d0bf7-c6d184859c49866d.elb.ap-south-1.amazonaws.com/'
     }
-    
+
     stages {
+
         stage('Checkout Code') {
-            // Purpose: Clone latest code from GitHub repository
             steps {
-                git branch: 'main', 
-                    url: 'https://github.com/Abhi-mishra998/trend.git'
+                checkout scm
+                echo "Source code successfully checked out"
             }
         }
-        
-        stage('Install Dependencies') {
-            // Purpose: Download Node.js packages required for React app
-            steps {
-                sh 'npm install'  // Reads package.json and installs modules
-            }
-        }
-        
-        stage('Build Application') {
-            // Purpose: Compile React app into static files (HTML/JS/CSS)
-            steps {
-                sh 'npm run build'  // Creates optimized production build in /dist
-            }
-        }
-        
+
         stage('Build Docker Image') {
-            // Purpose: Package application into Docker container image
             steps {
-                script {
-                    docker.build("${DOCKERHUB_REPO}:${IMAGE_TAG}")
-                    // Executes: docker build -t abhimishra/trend-app:BUILD_NUMBER .
+                sh '''
+                echo "Building Docker image..."
+                docker build -t ${DOCKERHUB_REPO}:${IMAGE_TAG} .
+                docker tag ${DOCKERHUB_REPO}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest
+                '''
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKERHUB_CREDENTIAL_ID}",
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh '''
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
+                    docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}
+                    docker push ${DOCKERHUB_REPO}:latest
+                    docker logout
+                    '''
                 }
             }
         }
-        
-        stage('Push to DockerHub') {
-            // Purpose: Upload container image to Docker registry
-            steps {
-                script {
-                    docker.withRegistry('', 'dockerhub-creds') {
-                        // Authenticates with DockerHub using stored credentials
-                        docker.image("${DOCKERHUB_REPO}:${IMAGE_TAG}").push()
-                        docker.image("${DOCKERHUB_REPO}:${IMAGE_TAG}").push('latest')
-                        // Pushes both versioned tag and 'latest' tag
-                    }
-                }
-            }
-        }
-        
+
         stage('Deploy to Kubernetes') {
-            // Purpose: Update running application on EKS cluster
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG')]) {
-                    // Injects kubeconfig file for cluster authentication
-                    sh """
-                        kubectl set image deployment/trend-app-deployment \\
-                            trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} \\
-                            -n ${NAMESPACE}
-                        # Updates deployment with new image version
-                        
-                        kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE}
-                        # Waits until all pods are updated and running
-                    """
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'AWS']]) {
+                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBEFILE')]) {
+                    sh '''
+                    export KUBECONFIG=$KUBEFILE
+                    kubectl apply -f k8s/
+                    kubectl set image deployment/trend-app-deployment trend-app=${DOCKERHUB_REPO}:${IMAGE_TAG} -n ${NAMESPACE}
+                    kubectl rollout status deployment/trend-app-deployment -n ${NAMESPACE}
+                    '''
+                }
                 }
             }
         }
-        
+
         stage('Verify Deployment') {
-            // Purpose: Confirm deployment succeeded and app is healthy
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-creds', variable: 'KUBECONFIG')]) {
-                    sh """
-                        kubectl get pods -n ${NAMESPACE}
-                        # Lists all pods to verify they're running
-                        
-                        kubectl get svc -n ${NAMESPACE}
-                        # Shows service and LoadBalancer URL
-                    """
-                }
+                sh '''
+                echo "Application LoadBalancer:"
+                echo "${HARDCODE_LB_URL}"
+
+                echo "Performing health check..."
+                curl -I --max-time 20 ${HARDCODE_LB_URL} || echo "Health check failed"
+                '''
             }
         }
     }
-    
+
     post {
-        // Actions to perform after pipeline completes
         success {
-            echo '✅ Deployment successful!'
-            // In production, send notification (Slack/email)
+            echo "Pipeline completed successfully"
+            echo "Application URL: ${HARDCODE_LB_URL}"
         }
         failure {
-            echo '❌ Deployment failed!'
-            // In production, alert team about failure
+            echo "Pipeline failed"
         }
     }
 }
